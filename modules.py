@@ -90,6 +90,15 @@ def parseTwitchTime(time):
     except:
         return {'hour':0,'minute':0,'second':0}
 
+def convertTwitchTime(time):
+    output = ""
+    if time['hour'] > 0:
+        output += str(time['hour']) + 'h' + str(time['minute']) + 'm'
+    elif time['minute'] > 0:
+        output += str(time['minute']) + 'm'
+    output += str(time['second']) + 's'
+    return output
+
 
 def substractTime(time, time2):
     format = '%H:%M:%S'
@@ -263,6 +272,16 @@ class Clipper:
                         self.update_msg = True
                         return
                     if self.work_type == 3:
+                        url = f"https://api.twitch.tv/helix/streams?user_id={self.user_id}"
+                        req3 = reqSession.get(url, headers=Clipper.api_headers)
+                        req_json3 = req3.json()
+                        if 'data' not in req_json3 or len(req_json3['data']) < 1:
+                            Log(f"Clipping: Vod not found")
+                            self.status = "Channel is not live at the moment."
+                            self.color = 10038562
+                            self.errorcode = 6 # vod not found
+                            self.update_msg = True
+                            return
                         if self.current_duration['hour'] < 1 and self.current_duration['minute'] < 1 and self.current_duration['second'] < 1:
                             Log(f"Clipping: Failed to parse timestamp")
                             self.status = "Failed to parse timestamp from current VOD."

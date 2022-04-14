@@ -3,7 +3,7 @@ from discord.ext import tasks, commands
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_choice, create_option, create_permission
 from hikari import OptionType
-from modules import Clipper, parseTime, convertTime, addTime, Log, GlobalAccount
+from modules import Clipper, parseTime, convertTime, addTime, Log, GlobalAccount, parseTwitchTime, convertTwitchTime
 import urllib, json
 import requests
 import dateutil.parser
@@ -11,6 +11,7 @@ import websocket
 from datetime import date, datetime, timedelta
 import os
 from configmanager import Config, LoadConfig
+from instagram import Instagram, Story
 
 client = commands.Bot(command_prefix=">")
 slash = SlashCommand(client, sync_commands=True)
@@ -81,6 +82,7 @@ async def on_ready():
     print(f"Running on server {Config.server_id} ..")
     await LoadSettings()
     global_save.start()
+    instagram_loop.start()
 
 
 #                                #
@@ -100,9 +102,9 @@ async def _initialize(ctx):
         await ctx.reply(embed = embed)
         return
     Clipper.initialize(clipper_loop, Config.streamable_account, Config.streamable_password)
+    Instagram.init()
     Log("Bot started!")
     embed = discord.Embed(description=f"Clipping module initialized", color=discord.Color(3066993))
-    print(active_guilds)
     await ctx.reply(embed = embed)
     return
 
@@ -297,8 +299,8 @@ async def _clip(ctx:SlashContext, channel: str, timestamp: str, duration: str ="
         return
     time = parseTime(timestamp)
     time2 = parseTime(duration)
-    if time2['hour'] > 0 or time2['minute'] > 10:
-        embed=discord.Embed(description=f"Current clip length limit is 10 minutes.", color=10038562)
+    if time2['hour'] > 0 or time2['minute'] > 5:
+        embed=discord.Embed(description=f"Current clip length limit is 5 minutes.", color=10038562)
         await ctx.send(embed=embed)
         Log(f"{ctx.author.name} used command /clip (failed: length limit)")
         return
@@ -368,8 +370,8 @@ async def _clip_vod(ctx:SlashContext, vod_id: int, timestamp: str, duration: str
         return
     time = parseTime(timestamp)
     time2 = parseTime(duration)
-    if time2['hour'] > 0 or time2['minute'] > 10:
-        embed=discord.Embed(description=f"Current clip length limit is 10 minutes.", color=10038562)
+    if time2['hour'] > 0 or time2['minute'] > 5:
+        embed=discord.Embed(description=f"Current clip length limit is 5 minutes.", color=10038562)
         await ctx.send(embed=embed)
         Log(f"{ctx.author.name} used command /clip-vod (failed: length limit)")
         return
@@ -668,7 +670,7 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
 # *  /sync <channel> <message_id> <?title>
 @slash.slash(
     name="sync",
-    description="Sync specified message with channel",
+    description="Sync specified message with channel vod",
     guild_ids=active_guilds,
     options=[
         create_option(
@@ -711,37 +713,64 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
             user_id = req_json['data'][0]['id']
             user_pic = req_json['data'][0]['profile_image_url']
         else:
-            Log(f"Timestamp-live: User not found")
+            Log(f"Sync: User not found")
             embed=discord.Embed(description=f"Channel not found.", color=10038562)
             await ctx.send(embed=embed)
             return
-        url = f"https://api.twitch.tv/helix/videos?user_id={user_id}&first=1"
+        if '/' in message_id:
+            _split = message_id.split('/')
+            if len(_split) > 2:
+                message_id = _split[len(_split)-1]
+        source_message = None
+        try:
+            source_message = await client.get_channel(Settings.general_channel).fetch_message(message_id)
+        except:
+            Log(f"Message not found during sync")
+            embed=discord.Embed(description=f"Message not found.", color=10038562)
+            await ctx.send(embed=embed)
+            return
+        if source_message == None:
+            Log(f"Message not found during sync")
+            embed=discord.Embed(description=f"Message not found.", color=10038562)
+            await ctx.send(embed=embed)
+            return
+        url = f"https://api.twitch.tv/helix/videos?user_id={user_id}"
         req2 = reqSession.get(url, headers=Clipper.api_headers)
         req_json2 = req2.json()
         if 'data' in req_json2 and len(req_json2['data']) > 0 and req_json2['data'][0]['user_id'] == user_id:
-            vod_id = req_json2['data'][0]['id']
-            vod_url = req_json2['data'][0]['url']
-            vod_duration = req_json2['data'][0]['duration']
+            for vod in req_json2['data']:
+                _vod_start_raw = vod['created_at']
+                _vod_duration_raw = vod['duration']
+                _vod_start = datetime.strptime(_vod_start_raw, "%Y-%m-%dT%H:%M:%SZ")
+                _vod_duration = parseTwitchTime(_vod_duration_raw)
+                _vod_end = _vod_start + timedelta(hours=_vod_duration['hour'], minutes=_vod_duration['minute'], seconds=_vod_duration['second'])
+                if _vod_start < source_message.created_at and source_message.created_at < _vod_end:
+                    vod_url = vod['url']
+                    vod_id = vod['id']
+                    _vod_current_time = str(source_message.created_at - _vod_start)
+                    if '.' in _vod_current_time:
+                        _vod_current_time_split = _vod_current_time.split('.')
+                        _vod_current_time = _vod_current_time_split[0]
+                    vod_duration = convertTwitchTime(parseTime(_vod_current_time))
         else:
-            Log(f"Timestamp-live: Vod not found")
+            Log(f"Sync: Vod not found")
             embed=discord.Embed(description=f"VOD not found.", color=10038562)
             await ctx.send(embed=embed)
             return
-        if vod_id != "" and vod_url != "":
-            source_message = await client.get_channel(Settings.general_channel).fetch_message(message_id)
-            if source_message == None:
-                Log(f"Message not found during sync")
-                embed=discord.Embed(description=f"Message not found.", color=10038562)
-                await ctx.send(embed=embed)
-                return
-            created_at = source_message.created_at - timedelta(hours = 7)
-            embed=discord.Embed(title=f"Synced with specified message",description=f"Timestamp: -todo-\nAustin time: {str(created_at)}\nMessage link: [#{client.get_channel(Settings.general_channel).name}]({source_message.jump_url})", color=12745742)
+        if vod_id != "" and vod_url != "" and vod_duration != "":
+            austin_time = source_message.created_at.replace(microsecond = 0) - timedelta(hours = 5)
+            embed=discord.Embed(title=f"Synced with message",description=f"Timestamp: {vod_url}?t={vod_duration}\nAustin time: {str(austin_time)}\nMessage link: [{source_message.author.name} in #{client.get_channel(Settings.general_channel).name}]({source_message.jump_url})", color=12745742)
             if title != "none" and len(title) > 0 and len(title) < 40:
                 embed.title = title
             if user_pic != "":
                 embed.set_thumbnail(url=user_pic)
             embed.set_author(name=f"{ctx.author.name}", icon_url=f"{ctx.author.avatar_url}")
             embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+            await ctx.send(embed=embed)
+            return
+        else:
+            Log(f"Sync: Vod not found")
+            embed=discord.Embed(description=f"VOD not found.", color=10038562)
             await ctx.send(embed=embed)
             return
     except Exception as e:
@@ -792,8 +821,8 @@ async def _clip_live(ctx:SlashContext, channel: str, duration: str ="30", title:
         Log(f"{ctx.author.name} used command /clip-live (failed: workers limit)")
         return
     time2 = parseTime(duration)
-    if time2['hour'] > 0 or time2['minute'] > 10:
-        embed=discord.Embed(description=f"Current clip length limit is 10 minutes.", color=10038562)
+    if time2['hour'] > 0 or time2['minute'] > 5:
+        embed=discord.Embed(description=f"Current clip length limit is 5 minutes.", color=10038562)
         await ctx.send(embed=embed)
         Log(f"{ctx.author.name} used command /clip (failed: length limit)")
         return
@@ -813,6 +842,39 @@ async def _clip_live(ctx:SlashContext, channel: str, duration: str ="30", title:
     clipper.work_init()
     Log(f"{ctx.author.name} used command /clip-live")
 
+# *  /save-story <ig_name>
+@slash.slash(
+    name="save-story",
+    description="Grabs stories posted on instagram",
+    guild_ids=active_guilds,
+    options=[
+        create_option(
+            name="user",
+            description="Username",
+            required=True,
+            option_type=OptionType.STRING
+        )
+    ]
+)
+async def _save_story(ctx:SlashContext, user: str):
+    if ctx.guild.id != Config.server_id:
+        return
+    if ctx.channel.id != Settings.bot_channel:
+        return
+    if not Clipper.ready:
+        embed=discord.Embed(description="Clipping module is disabled.", color=10038562)
+        await ctx.send(embed=embed)
+        Log(f"{ctx.author.name} used command /save-story (failed: module disabled)")
+        return
+    if Instagram.ready:
+        Instagram.getStories(user, ctx.author)
+    else:
+        embed=discord.Embed(description="Instagram module is disabled.", color=10038562)
+        await ctx.send(embed=embed)
+        Log(f"{ctx.author.name} used command /save-story (failed: ig not initialized)")
+        return
+    Log(f"{ctx.author.name} used command /save-story")
+
 ######################
 
 @tasks.loop(seconds=1)
@@ -823,5 +885,27 @@ async def clipper_loop():
 async def global_save():
     await SaveSettings()
 
+@tasks.loop(seconds=3)
+async def instagram_loop():
+    if len(Instagram.stories_ready) > 0:
+        try:
+            bot_channel = client.get_channel(Settings.bot_channel)
+            for story in Instagram.stories_ready:
+                desc = f"No video attached."
+                if story.media_type == 2:
+                    desc = f"[Video reupload (streamable.com)]({story.streamable_link})"
+                embed = discord.Embed(title=f"Story from {story.user_name}", description=f"{desc}", color=discord.Color(15277667))
+                if story.author != None:
+                    embed.set_author(name=f"{story.author.name}", icon_url=f"{story.author.avatar_url}")
+                if story.user_pic != "":
+                    embed.set_thumbnail(url=f"{story.user_pic}")
+                if story.thumbnail_link != "":
+                    embed.set_image(url=f"{story.thumbnail_link}")
+                embed.add_field(name="Posted at:", value=f"{str(story.taken_at)}")
+                embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                await bot_channel.send(embed=embed)
+                Instagram.stories_ready.remove(story)
+        except Exception as e:
+            Log(f"Exception during instagram loop: {str(e)}")
 
 client.run(Config.bot_token)

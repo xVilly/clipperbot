@@ -10,6 +10,8 @@ class Config:
     streamable_password = ''
     twitch_api_access = ''
     twitch_api_client = ''
+    ig_account = ''
+    ig_password = ''
 
 def LoadConfig():
     try:
@@ -32,6 +34,11 @@ def LoadConfig():
                     Config.twitch_api_access = data['twitch_api_details']['access_token']
                 if 'client_token' in data['twitch_api_details']:
                     Config.twitch_api_client = data['twitch_api_details']['client_token']
+            if 'instagram' in data:
+                if 'account' in data['instagram']:
+                    Config.ig_account = data['instagram']['account']
+                if 'password' in data['instagram']:
+                    Config.ig_password = data['instagram']['password']
     except:
         print("Could not load config.json file.. Creating a new template..")
         GenerateConfig()
@@ -48,6 +55,10 @@ def GenerateConfig():
         'twitch_api_details' : {
             'access_token' : '',
             'client_token' : ''
+        },
+        'instagram' : {
+            'account' : '',
+            'password' : ''
         }
     }
     json_settings = json.dumps(config)
