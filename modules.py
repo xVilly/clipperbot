@@ -112,10 +112,15 @@ class Clipper:
     active_clippers = []
     queue = []
     queue_system = True
+    api_headers = {}
 
     _cache_pending = []
 
     def initialize(clipper_loop, streamable_login, streamable_password):
+        Clipper.api_headers = {
+            'Authorization': Config.twitch_api_access,
+            'Client-Id': Config.twitch_api_client
+        }
         Clipper.streamable_api = StreamableApi(streamable_login, streamable_password)
         clipper_loop.start()
         Clipper.ready = True
@@ -232,7 +237,7 @@ class Clipper:
                 try:
                     reqSession = requests.Session()
                     url = f"https://api.twitch.tv/helix/users?login={self.user_name}"
-                    req = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+                    req = reqSession.get(url, headers=Clipper.api_headers)
                     req_json = req.json()
                     if 'data' in req_json and len(req_json['data']) > 0 and req_json['data'][0]['login'] == self.user_name:
                         self.user_id = req_json['data'][0]['id']
@@ -245,7 +250,7 @@ class Clipper:
                         self.update_msg = True
                         return
                     url = f"https://api.twitch.tv/helix/videos?user_id={self.user_id}&first=1"
-                    req2 = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+                    req2 = reqSession.get(url, headers=Clipper.api_headers)
                     req_json2 = req2.json()
                     if 'data' in req_json2 and len(req_json2['data']) > 0 and req_json2['data'][0]['user_id'] == self.user_id:
                         self.vod_id = req_json2['data'][0]['id']
@@ -328,7 +333,7 @@ class Clipper:
                                         return
                     self.work_type = 1
                 except Exception as e:
-                    Log(f"Exception during info gathering: {e}")
+                    Log(f"Exception during info gathering: {str(e)}")
                     self.status = "Could not find a VOD."
                     self.color = 10038562
                     self.errorcode = 4 # failed to find vod
@@ -387,13 +392,6 @@ class Clipper:
                     self.update_msg = True
                     return
 
-
-
-class TwitchApi:
-    API_HEADERS = {
-        'Authorization': Config.twitch_api_access,
-        'Client-Id': Config.twitch_api_client
-    }
 
 class GlobalAccount:
     RECENT_CLIPS_LIMIT = 50

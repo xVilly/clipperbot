@@ -13,6 +13,8 @@ __pycache__/
 
 #json files
 *.json
+# mkv temps
+*.mkv
 
 
 # Executables

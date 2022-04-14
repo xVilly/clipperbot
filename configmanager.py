@@ -28,9 +28,9 @@ def LoadConfig():
                 if 'password' in data['streamable_credentials']:
                     Config.streamable_password = data['streamable_credentials']['password']
             if 'twitch_api_details' in data:
-                if 'account_name' in data['twitch_api_details']:
+                if 'access_token' in data['twitch_api_details']:
                     Config.twitch_api_access = data['twitch_api_details']['access_token']
-                if 'password' in data['twitch_api_details']:
+                if 'client_token' in data['twitch_api_details']:
                     Config.twitch_api_client = data['twitch_api_details']['client_token']
     except:
         print("Could not load config.json file.. Creating a new template..")

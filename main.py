@@ -3,7 +3,7 @@ from discord.ext import tasks, commands
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_choice, create_option, create_permission
 from hikari import OptionType
-from modules_dk import Clipper, parseTime, convertTime, addTime, Log, TwitchApi, GlobalAccount
+from modules import Clipper, parseTime, convertTime, addTime, Log, GlobalAccount
 import urllib, json
 import requests
 import dateutil.parser
@@ -120,6 +120,7 @@ async def _shutdown(ctx):
         return
     Clipper.ready = False
     Clipper.active_clippers.clear()
+    clipper_loop.stop()
     Log("Bot stopped.")
     embed = discord.Embed(description=f"Clipping module stopped", color=discord.Color(15158332))
     await ctx.reply(embed = embed)
@@ -471,7 +472,7 @@ async def _timestamp_live(ctx:SlashContext, channel: str, title: str = "none"):
         vod_duration = ""
         reqSession = requests.Session()
         url = f"https://api.twitch.tv/helix/users?login={channel}"
-        req = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req = reqSession.get(url, headers=Clipper.api_headers)
         req_json = req.json()
         if 'data' in req_json and len(req_json['data']) > 0 and req_json['data'][0]['login'] == channel:
             user_id = req_json['data'][0]['id']
@@ -482,7 +483,7 @@ async def _timestamp_live(ctx:SlashContext, channel: str, title: str = "none"):
             await ctx.send(embed=embed)
             return
         url = f"https://api.twitch.tv/helix/videos?user_id={user_id}&first=1"
-        req2 = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req2 = reqSession.get(url, headers=Clipper.api_headers)
         req_json2 = req2.json()
         if 'data' in req_json2 and len(req_json2['data']) > 0 and req_json2['data'][0]['user_id'] == user_id:
             vod_id = req_json2['data'][0]['id']
@@ -548,7 +549,7 @@ async def _timestamp(ctx:SlashContext, channel: str, timestamp: str, title: str 
         vod_url = ""
         reqSession = requests.Session()
         url = f"https://api.twitch.tv/helix/users?login={channel}"
-        req = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req = reqSession.get(url, headers=Clipper.api_headers)
         req_json = req.json()
         if 'data' in req_json and len(req_json['data']) > 0 and req_json['data'][0]['login'] == channel:
             user_id = req_json['data'][0]['id']
@@ -559,7 +560,7 @@ async def _timestamp(ctx:SlashContext, channel: str, timestamp: str, title: str 
             await ctx.send(embed=embed)
             return
         url = f"https://api.twitch.tv/helix/videos?user_id={user_id}&first=1"
-        req2 = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req2 = reqSession.get(url, headers=Clipper.api_headers)
         req_json2 = req2.json()
         if 'data' in req_json2 and len(req_json2['data']) > 0 and req_json2['data'][0]['user_id'] == user_id:
             vod_id = req_json2['data'][0]['id']
@@ -619,7 +620,7 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
         vod_duration = ""
         reqSession = requests.Session()
         url = f"https://api.twitch.tv/helix/users?login={channel}"
-        req = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req = reqSession.get(url, headers=Clipper.api_headers)
         req_json = req.json()
         if 'data' in req_json and len(req_json['data']) > 0 and req_json['data'][0]['login'] == channel:
             user_id = req_json['data'][0]['id']
@@ -630,7 +631,7 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
             await ctx.send(embed=embed)
             return
         url = f"https://api.twitch.tv/helix/videos?user_id={user_id}&first=1"
-        req2 = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req2 = reqSession.get(url, headers=Clipper.api_headers)
         req_json2 = req2.json()
         if 'data' in req_json2 and len(req_json2['data']) > 0 and req_json2['data'][0]['user_id'] == user_id:
             vod_id = req_json2['data'][0]['id']
@@ -704,7 +705,7 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
         vod_duration = ""
         reqSession = requests.Session()
         url = f"https://api.twitch.tv/helix/users?login={channel}"
-        req = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req = reqSession.get(url, headers=Clipper.api_headers)
         req_json = req.json()
         if 'data' in req_json and len(req_json['data']) > 0 and req_json['data'][0]['login'] == channel:
             user_id = req_json['data'][0]['id']
@@ -715,7 +716,7 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
             await ctx.send(embed=embed)
             return
         url = f"https://api.twitch.tv/helix/videos?user_id={user_id}&first=1"
-        req2 = reqSession.get(url, headers=TwitchApi.API_HEADERS)
+        req2 = reqSession.get(url, headers=Clipper.api_headers)
         req_json2 = req2.json()
         if 'data' in req_json2 and len(req_json2['data']) > 0 and req_json2['data'][0]['user_id'] == user_id:
             vod_id = req_json2['data'][0]['id']
