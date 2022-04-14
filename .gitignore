@@ -9,6 +9,7 @@ bin-release/
 
 # Python env
 ClipperBot/
+__pycache__/
 
 #json files
 *.json

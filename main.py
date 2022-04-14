@@ -1,4 +1,3 @@
-from email.policy import default
 import discord
 from discord.ext import tasks, commands
 from discord_slash import SlashCommand, SlashContext
@@ -11,35 +10,32 @@ import dateutil.parser
 import websocket
 from datetime import date, datetime, timedelta
 import os
-
-OWNER_ID = 919678267630432356
-#BOT_TOKEN = 'OTYzMDcxODQ2MzYwNjg2Njcz.YlQwjQ.IGVa3T7gocYZj8R7j6RxXUZemPI'
-BOT_TOKEN = 'OTYwOTg5NzU3NTA3MjUyMjU0.YkyddA.bKN0CywLpUfog5-625jEL-WqWko' #emio bot
-GREENCORD2_GUILD_ID = 921520517742211082
-EMIKIF_GUILD_ID = 920863736867209247
-STREAMABLE_LOGIN = 'darkice1337@wp.pl'
-STREAMABLE_PASSWORD = 'darkice1337'
-
-COMMAND_GUILDS = [GREENCORD2_GUILD_ID, EMIKIF_GUILD_ID]
-ACTIVE_SERVER = GREENCORD2_GUILD_ID
+from configmanager import Config, LoadConfig
 
 client = commands.Bot(command_prefix=">")
 slash = SlashCommand(client, sync_commands=True)
 client.remove_command('help')
 
-class Config:
+LoadConfig()
+active_guilds = [Config.server_id]
+
+
+class Settings:
+    # settings.json
     active = False
-    bot_manager_role = 963147490213892107
-    general_channel = 961696138921148416
-    bot_channel = 961696138921148416
+    bot_manager_role = 0
+    general_channel = 0
+    bot_channel = 0
     allowed_commands=[]
 
 async def SaveSettings():
+    if Config.server_id == 0:
+        print("Failed to load settings: server ID not configured.")
     settings = {
-        ACTIVE_SERVER : {
-            'bot_manager_role' : Config.bot_manager_role,
-            'general_channel' : Config.general_channel,
-            'bot_channel' : Config.bot_channel,
+        Config.server_id : {
+            'bot_manager_role' : Settings.bot_manager_role,
+            'general_channel' : Settings.general_channel,
+            'bot_channel' : Settings.bot_channel,
             'global_info' : {
                 'total_clips' : GlobalAccount.total_clips,
                 'total_syncs' : GlobalAccount.total_syncs,
@@ -57,14 +53,14 @@ async def LoadSettings():
         with open("settings.json", "r") as jsonfile:
             data = json.load(jsonfile)
             print("Settings Loaded.")
-            if str(ACTIVE_SERVER) in data:
-                server_data = data[str(ACTIVE_SERVER)]
+            if str(Config.server_id) in data:
+                server_data = data[str(Config.server_id)]
                 if 'bot_manager_role' in server_data:
-                    Config.bot_manager_role = server_data['bot_manager_role']
+                    Settings.bot_manager_role = server_data['bot_manager_role']
                 if 'general_channel' in server_data:
-                    Config.general_channel = server_data['general_channel']
+                    Settings.general_channel = server_data['general_channel']
                 if 'bot_channel' in server_data:
-                    Config.bot_channel = server_data['bot_channel']
+                    Settings.bot_channel = server_data['bot_channel']
                 if 'global_info' in server_data:
                     if 'total_clips' in server_data['global_info']:
                         GlobalAccount.total_clips = server_data['global_info']['total_clips']
@@ -79,7 +75,10 @@ async def LoadSettings():
 
 @client.event
 async def on_ready():
-    print(f"Running on server {ACTIVE_SERVER} ..")
+    if Config.server_id == 0:
+        print("Server ID is not configured. Data will not be saved.")
+        return
+    print(f"Running on server {Config.server_id} ..")
     await LoadSettings()
     global_save.start()
 
@@ -90,9 +89,9 @@ async def on_ready():
 
 @client.command(name="initialize", aliases=['init'])
 async def _initialize(ctx):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if (not (ctx.guild.get_role(Config.bot_manager_role) in ctx.author.roles)) and ctx.author.id != OWNER_ID:
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
         embed = discord.Embed(description="This command requires manager role.", color=discord.Color(15158332))
         await ctx.reply(embed = embed)
         return
@@ -100,18 +99,18 @@ async def _initialize(ctx):
         embed = discord.Embed(description="Bot is already initialized.", color=discord.Color(15158332))
         await ctx.reply(embed = embed)
         return
-    Clipper.initialize(clipper_loop, STREAMABLE_LOGIN, STREAMABLE_PASSWORD)
+    Clipper.initialize(clipper_loop, Config.streamable_account, Config.streamable_password)
     Log("Bot started!")
     embed = discord.Embed(description=f"Clipping module initialized", color=discord.Color(3066993))
-    
+    print(active_guilds)
     await ctx.reply(embed = embed)
     return
 
 @client.command(name="shutdown", aliases=['stop'])
 async def _shutdown(ctx):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if (not (ctx.guild.get_role(Config.bot_manager_role) in ctx.author.roles)) and ctx.author.id != OWNER_ID:
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
         embed = discord.Embed(description="This command requires manager role.", color=discord.Color(15158332))
         await ctx.reply(embed = embed)
         return
@@ -128,9 +127,9 @@ async def _shutdown(ctx):
 
 @client.command(name="setup-channel")
 async def _setup_channel(ctx, arg="", arg2=""):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if (not (ctx.guild.get_role(Config.bot_manager_role) in ctx.author.roles)) and ctx.author.id != OWNER_ID:
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
         embed = discord.Embed(description="This command requires manager role.", color=discord.Color(15158332))
         await ctx.reply(embed = embed)
         return
@@ -142,12 +141,12 @@ async def _setup_channel(ctx, arg="", arg2=""):
     else:
         try:
             if arg == "general":
-                Config.general_channel = int(arg2)
+                Settings.general_channel = int(arg2)
                 embed = discord.Embed(description=f"General channel changed to {arg2}", color=discord.Color(3066993))
                 await ctx.reply(embed = embed)
                 return
             elif arg == "bot":
-                Config.bot_channel = int(arg2)
+                Settings.bot_channel = int(arg2)
                 embed = discord.Embed(description=f"Bot channel changed to {arg2}", color=discord.Color(3066993))
                 await ctx.reply(embed = embed)
                 return
@@ -159,9 +158,9 @@ async def _setup_channel(ctx, arg="", arg2=""):
 
 @client.command(name="help")
 async def _help(ctx):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if (not (ctx.guild.get_role(Config.bot_manager_role) in ctx.author.roles)) and ctx.author.id != OWNER_ID:
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
         embed = discord.Embed(description="This command requires manager role.", color=discord.Color(15158332))
         await ctx.reply(embed = embed)
         return
@@ -172,9 +171,9 @@ async def _help(ctx):
 
 @client.command(name="commands")
 async def _commands(ctx):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if (not (ctx.guild.get_role(Config.bot_manager_role) in ctx.author.roles)) and ctx.author.id != OWNER_ID:
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
         embed = discord.Embed(description="This command requires manager role.", color=discord.Color(15158332))
         await ctx.reply(embed = embed)
         return
@@ -183,9 +182,9 @@ async def _commands(ctx):
 
 @client.command(name="myclips", aliases=['mc'])
 async def _myclips(ctx, arg=""):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     if str(ctx.author.id) not in GlobalAccount.users:
         embed=discord.Embed(description=f"You have no clips saved yet.", color=10038562)
@@ -213,9 +212,9 @@ async def _myclips(ctx, arg=""):
 
 @client.command(name="recent")
 async def _recap(ctx, arg=""):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     page = 1
     if arg=="":
@@ -252,7 +251,7 @@ async def _recap(ctx, arg=""):
 @slash.slash(
     name="clip",
     description="Makes a clip from specified live channel and uploads it to streamable (timestamp required)",
-    guild_ids=COMMAND_GUILDS,
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="channel",
@@ -281,9 +280,9 @@ async def _recap(ctx, arg=""):
     ]
 )
 async def _clip(ctx:SlashContext, channel: str, timestamp: str, duration: str ="30", title: str ="default"):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     if not Clipper.ready:
         embed=discord.Embed(description="Clipping module is disabled.", color=10038562)
@@ -323,7 +322,7 @@ async def _clip(ctx:SlashContext, channel: str, timestamp: str, duration: str ="
 @slash.slash(
     name="clip-vod",
     description="Makes a clip from specified VOD and uploads it to streamable",
-    guild_ids=COMMAND_GUILDS,
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="vod_id",
@@ -352,9 +351,9 @@ async def _clip(ctx:SlashContext, channel: str, timestamp: str, duration: str ="
     ]
 )
 async def _clip_vod(ctx:SlashContext, vod_id: int, timestamp: str, duration: str ="30", title: str ="default"):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     if not Clipper.ready:
         embed=discord.Embed(description="Clipping module is disabled.", color=10038562)
@@ -394,7 +393,7 @@ async def _clip_vod(ctx:SlashContext, vod_id: int, timestamp: str, duration: str
 @slash.slash(
     name="clip-save",
     description="Generates URL for downloading streamable clip",
-    guild_ids=COMMAND_GUILDS,
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="streamable_id",
@@ -405,9 +404,9 @@ async def _clip_vod(ctx:SlashContext, vod_id: int, timestamp: str, duration: str
     ]
 )
 async def _clip_save(ctx:SlashContext, streamable_id: str):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     if not Clipper.ready:
         embed=discord.Embed(description="Clipping module is disabled.", color=10038562)
@@ -442,7 +441,7 @@ async def _clip_save(ctx:SlashContext, streamable_id: str):
 @slash.slash(
     name="timestamp-live",
     description="Generates a VOD url with current timestamp",
-    guild_ids=COMMAND_GUILDS,
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="channel",
@@ -459,9 +458,9 @@ async def _clip_save(ctx:SlashContext, streamable_id: str):
     ]
 )
 async def _timestamp_live(ctx:SlashContext, channel: str, title: str = "none"):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     try:
         Log(f"{ctx.author.name} used command /timestamp-live")
@@ -514,7 +513,7 @@ async def _timestamp_live(ctx:SlashContext, channel: str, title: str = "none"):
 @slash.slash(
     name="timestamp",
     description="Generates a VOD url with given timestamp",
-    guild_ids=COMMAND_GUILDS,
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="channel",
@@ -537,9 +536,9 @@ async def _timestamp_live(ctx:SlashContext, channel: str, title: str = "none"):
     ]
 )
 async def _timestamp(ctx:SlashContext, channel: str, timestamp: str, title: str = "none"):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     try:
         Log(f"{ctx.author.name} used command /timestamp")
@@ -590,7 +589,7 @@ async def _timestamp(ctx:SlashContext, channel: str, timestamp: str, title: str 
 @slash.slash(
     name="sync-live",
     description="Send a bot message in #general with current timestamp and links it here",
-    guild_ids=COMMAND_GUILDS,
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="channel",
@@ -607,9 +606,9 @@ async def _timestamp(ctx:SlashContext, channel: str, timestamp: str, title: str 
     ]
 )
 async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     try:
         Log(f"{ctx.author.name} used command /sync")
@@ -648,7 +647,7 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
             if title != "none" and len(title) > 0 and len(title) < 40:
                 _sync_msg.title = title
             _sync_msg.set_author(name=f"{ctx.author.name} made a sync link:", icon_url=f"{ctx.author.avatar_url}")
-            general_channel = client.get_channel(Config.general_channel)
+            general_channel = client.get_channel(Settings.general_channel)
             sync_msg = await general_channel.send(embed=_sync_msg)
             embed=discord.Embed(title=f"Synced with generated message",description=f"Message link: [#{general_channel.name}]({sync_msg.jump_url})", color=12745742)
             if title != "none" and len(title) > 0 and len(title) < 40:
@@ -669,7 +668,7 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
 @slash.slash(
     name="sync",
     description="Sync specified message with channel",
-    guild_ids=[GREENCORD2_GUILD_ID],
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="channel",
@@ -692,9 +691,9 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
     ]
 )
 async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "none"):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     try:
         Log(f"{ctx.author.name} used command /sync")
@@ -728,14 +727,14 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
             await ctx.send(embed=embed)
             return
         if vod_id != "" and vod_url != "":
-            source_message = await client.get_channel(Config.general_channel).fetch_message(message_id)
+            source_message = await client.get_channel(Settings.general_channel).fetch_message(message_id)
             if source_message == None:
                 Log(f"Message not found during sync")
                 embed=discord.Embed(description=f"Message not found.", color=10038562)
                 await ctx.send(embed=embed)
                 return
             created_at = source_message.created_at - timedelta(hours = 7)
-            embed=discord.Embed(title=f"Synced with specified message",description=f"Timestamp: -todo-\nAustin time: {str(created_at)}\nMessage link: [#{client.get_channel(Config.general_channel).name}]({source_message.jump_url})", color=12745742)
+            embed=discord.Embed(title=f"Synced with specified message",description=f"Timestamp: -todo-\nAustin time: {str(created_at)}\nMessage link: [#{client.get_channel(Settings.general_channel).name}]({source_message.jump_url})", color=12745742)
             if title != "none" and len(title) > 0 and len(title) < 40:
                 embed.title = title
             if user_pic != "":
@@ -754,7 +753,7 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
 @slash.slash(
     name="clip-live",
     description="Makes a clip with current live timestamp and queues it up for download.",
-    guild_ids=COMMAND_GUILDS,
+    guild_ids=active_guilds,
     options=[
         create_option(
             name="channel",
@@ -777,9 +776,9 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
     ]
 )
 async def _clip_live(ctx:SlashContext, channel: str, duration: str ="30", title: str ="default"):
-    if ctx.guild.id != ACTIVE_SERVER:
+    if ctx.guild.id != Config.server_id:
         return
-    if ctx.channel.id != Config.bot_channel:
+    if ctx.channel.id != Settings.bot_channel:
         return
     if not Clipper.ready:
         embed=discord.Embed(description="Clipping module is disabled.", color=10038562)
@@ -824,4 +823,4 @@ async def global_save():
     await SaveSettings()
 
 
-client.run(BOT_TOKEN)
+client.run(Config.bot_token)

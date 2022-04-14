@@ -16,11 +16,7 @@ import subprocess
 import os.path
 from os import listdir
 from os.path import isfile, join
-
-TWITCH_API_ACCESS = 'Bearer ib1j5olcaof1b77xpk05kdo3ne6nz5'
-TWITCH_API_CLIENT = 'i64qx6cooaziaj7nb94jrp7259ji2g'
-
-TWITTER_API_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAAAoFYQEAAAAAw0WlsylfxoaK3aanbJ8Jx0fceG0%3DX3GNR14Add438IHgRaJIHqSfhUExcCnY0vRq6dQ6V9xs3jZiGE'
+from configmanager import Config
 
 def parseTime(time="00:00:00"):
     parts = time.split(':')
@@ -395,13 +391,9 @@ class Clipper:
 
 class TwitchApi:
     API_HEADERS = {
-        'Authorization': TWITCH_API_ACCESS,
-        'Client-Id': TWITCH_API_CLIENT
+        'Authorization': Config.twitch_api_access,
+        'Client-Id': Config.twitch_api_client
     }
-    tracked_users = ['ibai', 'mizkif']
-    tracked_users_class = []
-
-    active = False
 
 class GlobalAccount:
     RECENT_CLIPS_LIMIT = 50
