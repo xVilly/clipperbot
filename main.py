@@ -304,6 +304,8 @@ async def _clip(ctx:SlashContext, channel: str, timestamp: str, duration: str ="
         await ctx.send(embed=embed)
         Log(f"{ctx.author.name} used command /clip (failed: length limit)")
         return
+    if len(title) < 1 or len(title) > 100:
+        title = "default"
     clipper = Clipper()
     clipper.message_author = ctx.author
     clipper.channel = ctx.channel
@@ -375,6 +377,8 @@ async def _clip_vod(ctx:SlashContext, vod_id: int, timestamp: str, duration: str
         await ctx.send(embed=embed)
         Log(f"{ctx.author.name} used command /clip-vod (failed: length limit)")
         return
+    if len(title) < 1 or len(title) > 100:
+        title = "default"
     clipper = Clipper()
     clipper.message_author = ctx.author
     clipper.channel = ctx.channel
@@ -466,6 +470,8 @@ async def _timestamp_live(ctx:SlashContext, channel: str, title: str = "none"):
     if ctx.channel.id != Settings.bot_channel:
         return
     try:
+        if len(title) < 1 or len(title) > 100:
+            title = "none"
         Log(f"{ctx.author.name} used command /timestamp-live")
         user_id = 0
         user_pic = ""
@@ -544,6 +550,8 @@ async def _timestamp(ctx:SlashContext, channel: str, timestamp: str, title: str 
     if ctx.channel.id != Settings.bot_channel:
         return
     try:
+        if len(title) < 1 or len(title) > 100:
+            title = "none"
         Log(f"{ctx.author.name} used command /timestamp")
         user_id = 0
         user_pic = ""
@@ -614,6 +622,8 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
     if ctx.channel.id != Settings.bot_channel:
         return
     try:
+        if len(title) < 1 or len(title) > 100:
+            title = "none"
         Log(f"{ctx.author.name} used command /sync")
         user_id = 0
         user_pic = ""
@@ -699,6 +709,8 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
     if ctx.channel.id != Settings.bot_channel:
         return
     try:
+        if len(title) < 1 or len(title) > 100:
+            title = "none"
         Log(f"{ctx.author.name} used command /sync")
         user_id = 0
         user_pic = ""
@@ -826,6 +838,8 @@ async def _clip_live(ctx:SlashContext, channel: str, duration: str ="30", title:
         await ctx.send(embed=embed)
         Log(f"{ctx.author.name} used command /clip (failed: length limit)")
         return
+    if len(title) < 1 or len(title) > 100:
+        title = "default"
     clipper = Clipper()
     clipper.message_author = ctx.author
     clipper.channel = ctx.channel
@@ -860,6 +874,8 @@ async def _save_story(ctx:SlashContext, user: str):
     if ctx.guild.id != Config.server_id:
         return
     if ctx.channel.id != Settings.bot_channel:
+        return
+    if ctx.author.id != Config.owner_id:
         return
     if not Clipper.ready:
         embed=discord.Embed(description="Clipping module is disabled.", color=10038562)

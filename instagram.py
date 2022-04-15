@@ -14,13 +14,22 @@ class Instagram:
     stories_ready = []
 
     def init():
-        Instagram.cl = Client()
-        Instagram.cl.login(Config.ig_account, Config.ig_password)
-        Instagram.ready = True
+        try:
+            Instagram.cl = Client()
+            Instagram.cl.login(Config.ig_account, Config.ig_password)
+            Instagram.ready = True
+        except Exception as e:
+            Log(f"Failed to load: {str(e)}")
+            return
         
 
     def getStories(user_name, author):
-        user_id = Instagram.cl.user_id_from_username(user_name)
+        user_id = 0
+        try:
+            user_id = Instagram.cl.user_id_from_username(user_name)
+        except:
+            Log(f"User not found {user_name} (save-story)")
+            return
         stories = Instagram.cl.user_stories(user_id)
         for story in stories:
             s = Story()
