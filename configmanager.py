@@ -12,6 +12,7 @@ class Config:
     twitch_api_client = ''
     ig_account = ''
     ig_password = ''
+    twitter_auth = ''
 
 def LoadConfig():
     try:
@@ -39,6 +40,8 @@ def LoadConfig():
                     Config.ig_account = data['instagram']['account']
                 if 'password' in data['instagram']:
                     Config.ig_password = data['instagram']['password']
+            if 'twitter_auth' in data:
+                Config.twitter_auth = data['twitter_auth']
     except:
         print("Could not load config.json file.. Creating a new template..")
         GenerateConfig()
@@ -59,7 +62,8 @@ def GenerateConfig():
         'instagram' : {
             'account' : '',
             'password' : ''
-        }
+        },
+        'twitter_auth' : ''
     }
     json_settings = json.dumps(config)
     with open("config.json", "w") as jsonfile:

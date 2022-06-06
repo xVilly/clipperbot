@@ -153,7 +153,7 @@ class Clipper:
                                 embed.add_field(name="Clipper:", value=f"{clipper.message_author.name}")
                                 embed.add_field(name="Timestamp:", value=f"{convertTime(clipper.start_time)}")
                                 embed.add_field(name="Duration:", value=f"{convertTime(clipper.duration)}")
-                            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                            embed.set_footer(text="Clipperbot ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
                             await clipper.message.edit(embed = embed)
                             clipper.update_msg = False
                         elif clipper.cmd == "clip-vod":
@@ -166,7 +166,7 @@ class Clipper:
                                 embed.add_field(name="Clipper:", value=f"{clipper.message_author.name}")
                                 embed.add_field(name="Timestamp:", value=f"{convertTime(clipper.start_time)}")
                                 embed.add_field(name="Duration:", value=f"{convertTime(clipper.duration)}")
-                            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                            embed.set_footer(text="Clipperbot ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
                             await clipper.message.edit(embed = embed)
                             clipper.update_msg = False
                         elif clipper.cmd == "clip-live":
@@ -181,7 +181,7 @@ class Clipper:
                                 embed.add_field(name="Clipper:", value=f"{clipper.message_author.name}")
                                 embed.add_field(name="Timestamp:", value=f"{convertTime(clipper.start_time)}")
                                 embed.add_field(name="Duration:", value=f"{convertTime(clipper.duration)}")
-                            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                            embed.set_footer(text="Clipperbot ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
                             await clipper.message.edit(embed = embed)
                             clipper.update_msg = False
                     except Exception as e:
@@ -442,4 +442,224 @@ class GlobalAccount:
             GlobalAccount.users[str(user_id)]['recent_clips'].insert(0, {'title':clip_title, 'url':clip_url, 'date':str(date)})
         except Exception as e:
             Log(f"Error during saving clip {str(e)}")
-        
+
+class Twitter:
+    api_headers = {
+        'Authorization': ''
+    }
+    
+    cache = {
+        #Mizkif
+        '4699719036' : {
+            'alias':'Mizkif',
+            'color':2067276,
+            'liked_data':[],
+            'tweets_data':[],
+            'ignore_liked': True
+        },
+        #Emiru
+        '1075578421139439616' : {
+            'alias':'Emiru',
+            'color':15277667,
+            'liked_data':[],
+            'tweets_data':[],
+            'ignore_liked': True
+        },
+        #emiru alt
+        '1495261736261365763' : {
+            'alias':'Egglawl',
+            'color':10181046,
+            'liked_data':[],
+            'tweets_data':[],
+            'ignore_liked': True
+        },
+        #mizkif alt
+        '1489490323382456321' : {
+            'alias':'IsMizGoingLive',
+            'color':2123412,
+            'liked_data':[],
+            'tweets_data':[],
+            'ignore_liked': True
+        },
+        #villy
+        '166808088688640000' : {
+            'alias':'Villy',
+            'color':2123412,
+            'liked_data':[],
+            'tweets_data':[],
+            'ignore_liked': False
+        }
+    }
+
+    display_new_likes = []
+    display_new_tweets = []
+    active = False
+
+    def init():
+        if Twitter.active:
+            return
+        Twitter.active = True
+        Twitter.api_headers['Authorization'] = Config.twitter_auth
+        t1 = threading.Thread(target=Twitter.check_liked)
+        t1.start()
+        t2 = threading.Thread(target=Twitter.check_tweets)
+        t2.start()
+        print(f'started with {Twitter.api_headers}')
+
+    def check_liked():
+        while True:
+            try:
+                if not Twitter.active:
+                    return
+                print("yo1")
+                reqSession = requests.Session()
+                user_count = 0
+                for user in Twitter.cache:
+                    if not Twitter.cache[user]['ignore_liked']:
+                        user_count += 1
+                for user in Twitter.cache:
+                    if Twitter.cache[user]['ignore_liked']:
+                        continue
+                    req_liked = reqSession.get(f"https://api.twitter.com/2/users/{user}/liked_tweets?max_results=5&tweet.fields=created_at&user.fields=profile_image_url&expansions=author_id", headers=Twitter.api_headers)
+                    print(f"{str(Twitter.cache[user]['alias'])} updated {str(req_liked.status_code)}")
+                    if req_liked.status_code == 200:
+                        req_liked_json = req_liked.json()
+                        if user not in Twitter.cache:
+                            Twitter.cache[user]['liked_data'] = req_liked_json['data']
+                            continue
+                        elif len(Twitter.cache[user]['liked_data']) == 0:
+                            Twitter.cache[user]['liked_data'] = req_liked_json['data']
+                            continue
+                        else:
+                            id_list = []
+                            new_likes = []
+                            for data in Twitter.cache[user]['liked_data']:
+                                id_list.append(data['id'])
+                            for curr_data in req_liked_json['data']:
+                                if curr_data['id'] not in id_list:
+                                    new_likes.append(curr_data)
+                            if len(new_likes) > 0:
+                                Twitter.processNewLikes(user, new_likes, req_liked_json['includes'], reqSession)
+                            Twitter.cache[user]['liked_data'] = req_liked_json['data']
+                reqSession.close()
+                time.sleep((15 * user_count) + 2)
+            except Exception as e:
+                print("exception: " +str(e))
+                time.sleep(10)
+
+    def check_tweets():
+        while True:
+            try:
+                if not Twitter.active:
+                    return
+                reqSession = requests.Session()
+                for user in Twitter.cache:
+                    req_tweets = reqSession.get(f"https://api.twitter.com/2/users/{user}/tweets?tweet.fields=source,created_at&user.fields=profile_image_url&expansions=in_reply_to_user_id,author_id", headers=Twitter.api_headers)
+                    print(req_tweets.json())
+                    if req_tweets.status_code == 200:
+                        req_tweets_json = req_tweets.json()
+                        if user not in Twitter.cache:
+                            Twitter.cache[user]['tweets_data'] = req_tweets_json['data']
+                            continue
+                        elif len(Twitter.cache[user]['tweets_data']) == 0:
+                            Twitter.cache[user]['tweets_data'] = req_tweets_json['data']
+                            continue
+                        else:
+                            id_list = []
+                            new_tweets = []
+                            for data in Twitter.cache[user]['tweets_data']:
+                                id_list.append(data['id'])
+                            for curr_data in req_tweets_json['data']:
+                                if curr_data['id'] not in id_list:
+                                    new_tweets.append(curr_data)
+                            if len(new_tweets) > 0:
+                                Twitter.processNewTweets(user, new_tweets, req_tweets_json['includes'], reqSession)
+                            Twitter.cache[user]['tweets_data'] = req_tweets_json['data']
+                reqSession.close()
+                time.sleep((1 * len(Twitter.cache)) + 1)
+            except Exception as e:
+                print("exception: " +str(e))
+                time.sleep(10)
+    
+    def processNewLikes(user, new_likes, authors, reqSession):
+        for like in new_likes:
+            try:
+                author_name = 'unknown'
+                creation_date = 'unknown'
+                author_pfp = 'unknown'
+                user_pfp = 'unknown'
+                if 'users' in authors and 'author_id' in like:
+                    for u in authors['users']:
+                        if u['id'] == like['author_id']:
+                            author_name = u['username']
+                            author_pfp = u['profile_image_url']
+                user_details = reqSession.get(f"https://api.twitter.com/2/users/{user}?user.fields=profile_image_url", headers=Twitter.api_headers)
+                user_details_json = user_details.json()
+                if 'data' in user_details_json:
+                    if 'profile_image_url' in user_details_json['data']:
+                        user_pfp = user_details_json['data']['profile_image_url']
+                if 'created_at' in like:
+                    time = dateutil.parser.isoparse(like['created_at']).replace(tzinfo=None)
+                    creation_date = str(time - timedelta(hours=5))
+                like_id = like['id']
+                date = datetime.now().replace(microsecond = 0) - timedelta(hours = 7)
+                display_ready = {
+                    'tweet_id': like_id,
+                    'tweet_author': author_name,
+                    'tweet_date': creation_date,
+                    'tweet_author_pfp': author_pfp,
+                    'tweet_text': like['text'],
+                    'user_id': user,
+                    'user_pfp': user_pfp,
+                    'like_date': str(date)
+                }
+                Twitter.display_new_likes.append(display_ready)
+            except Exception as e:
+                print("exception: " +str(e))
+    
+    def processNewTweets(user, new_tweets, authors, reqSession):
+        for tweet in new_tweets:
+            try:
+                author_name = 'unknown'
+                creation_date = 'unknown'
+                author_pfp = 'unknown'
+                user_pfp = 'unknown'
+                if 'users' in authors and 'author_id' in tweet:
+                    author_id = tweet['author_id']
+                    if 'in_reply_to_user_id' in tweet:
+                        author_id = tweet['in_reply_to_user_id']
+                    for u in authors['users']:
+                        if u['id'] == author_id:
+                            author_name = u['username']
+                            author_pfp = u['profile_image_url']
+                user_details = reqSession.get(f"https://api.twitter.com/2/users/{user}?user.fields=profile_image_url", headers=Twitter.api_headers)
+                user_details_json = user_details.json()
+                if 'data' in user_details_json:
+                    if 'profile_image_url' in user_details_json['data']:
+                        user_pfp = user_details_json['data']['profile_image_url']
+                if 'created_at' in tweet:
+                    time = dateutil.parser.isoparse(tweet['created_at']).replace(tzinfo=None)
+                    creation_date = str(time - timedelta(hours=5))
+                tweet_id = tweet['id']
+                source = tweet['source']
+                tweet_type = "tweet"
+                if 'in_reply_to_user_id' in tweet:
+                    tweet_type = "reply"
+                elif tweet['text'].startswith('RT @'):
+                    tweet_type = "retweet"
+                date = datetime.now().replace(microsecond = 0) - timedelta(hours = 7)
+                display_ready = {
+                    'tweet_id': tweet_id,
+                    'tweet_author': author_name,
+                    'tweet_date': creation_date,
+                    'tweet_author_pfp': author_pfp,
+                    'tweet_text': tweet['text'],
+                    'tweet_source': source,
+                    'tweet_type': tweet_type,
+                    'user_id': user,
+                    'user_pfp': user_pfp,
+                    'date': str(date)
+                }
+                Twitter.display_new_tweets.append(display_ready)
+            except Exception as e:
+                print("exception: " +str(e))

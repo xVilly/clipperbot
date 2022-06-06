@@ -12,6 +12,9 @@ from datetime import date, datetime, timedelta
 import os
 from configmanager import Config, LoadConfig
 from instagram import Instagram, Story
+import random
+from economy import Economy
+import random
 
 client = commands.Bot(command_prefix=">")
 slash = SlashCommand(client, sync_commands=True)
@@ -21,12 +24,14 @@ LoadConfig()
 active_guilds = [Config.server_id]
 
 
+
 class Settings:
     # settings.json
     active = False
     bot_manager_role = 0
     general_channel = 0
     bot_channel = 0
+    update_channel = 0
     allowed_commands=[]
 
 async def SaveSettings():
@@ -37,6 +42,7 @@ async def SaveSettings():
             'bot_manager_role' : Settings.bot_manager_role,
             'general_channel' : Settings.general_channel,
             'bot_channel' : Settings.bot_channel,
+            'update_channel' : Settings.update_channel,
             'global_info' : {
                 'total_clips' : GlobalAccount.total_clips,
                 'total_syncs' : GlobalAccount.total_syncs,
@@ -62,6 +68,8 @@ async def LoadSettings():
                     Settings.general_channel = server_data['general_channel']
                 if 'bot_channel' in server_data:
                     Settings.bot_channel = server_data['bot_channel']
+                if 'update_channel' in server_data:
+                    Settings.update_channel = server_data['update_channel']
                 if 'global_info' in server_data:
                     if 'total_clips' in server_data['global_info']:
                         GlobalAccount.total_clips = server_data['global_info']['total_clips']
@@ -103,10 +111,219 @@ async def _initialize(ctx):
         return
     Clipper.initialize(clipper_loop, Config.streamable_account, Config.streamable_password)
     Instagram.init()
+    #Twitter.init()
+    #twitter_loop.start()
     Log("Bot started!")
     embed = discord.Embed(description=f"Clipping module initialized", color=discord.Color(3066993))
     await ctx.reply(embed = embed)
     return
+
+@client.command(name="economy", aliases=['eco'])
+async def _economy(ctx):
+    if ctx.guild.id != Config.server_id:
+        return
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
+        embed = discord.Embed(description="This command requires manager role.", color=discord.Color(15158332))
+        await ctx.reply(embed = embed)
+        return
+    if Economy.initialized:
+        embed = discord.Embed(description="Bot is already initialized.", color=discord.Color(15158332))
+        await ctx.reply(embed = embed)
+        return
+    Economy.init()
+    update_predictions.start()
+    Log("Economy bot started!")
+    embed = discord.Embed(description=f"Economy module initialized", color=discord.Color(3066993))
+    await ctx.reply(embed = embed)
+    return
+
+@client.command(name="balance", aliases=['cash', '$'])
+async def _economy_balance(ctx):
+    if ctx.guild.id != Config.server_id:
+        return
+    if not Economy.initialized:
+        return
+    Log(f"{ctx.author.name} used command 'balance'")
+    _balance = Economy.getUserInfo(str(ctx.author.id), 'balance')
+    embed = discord.Embed(description=f"<:moneybag:981939904474906677> Your current cash: {_balance}$", color=discord.Color(3066993))
+    await ctx.reply(embed = embed)
+    return
+
+@client.command(name="setcash", aliases=[])
+async def _economy_setcash(ctx, user_id="", value=0):
+    if ctx.guild.id != Config.server_id:
+        return
+    if not Economy.initialized:
+        return
+    if ctx.author.id != Config.owner_id:
+        return
+    Log(f"{ctx.author.name} used command 'setbal' with args '{user_id}, {value}'")
+    try:
+        Economy.setUserBalance(str(user_id), int(value))
+    except:
+        return
+    return
+
+@client.command(name="prediction", aliases=[])
+async def _economy_prediction(ctx, prediction="", option1="", option2="", option3="", option4="", option5=""):
+    if ctx.guild.id != Config.server_id:
+        return
+    if not Economy.initialized:
+        return
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
+        return
+    Log(f"{ctx.author.name} used command 'prediction' with args '{prediction}, {option1}, {option2}, {option3}, {option4}, {option5}'")
+    try:
+        if Economy.checkPrediction():
+            embed = discord.Embed(description=f"You can only run one prediction at a time.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        if prediction == "":
+            embed = discord.Embed(description=f"Prediction name can't be empty.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        if option1 == "" or option2 == "":
+            embed = discord.Embed(description=f"Prediction requires at least 2 options.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        options = []
+        options.append(option1)
+        options.append(option2)
+        if option3 != "":
+            options.append(option3)
+        if option4 != "":
+            options.append(option4)
+        if option5 != "":
+            options.append(option5)
+        pred_id = Economy.startPrediction(prediction, options)
+        await Economy.displayPrediction(client, pred_id, ctx)
+        return
+    except Exception as e:
+        Log(f"Exception in prediction start: {e}")
+        return
+
+@client.command(name="closeprediction", aliases=[])
+async def _economy_closeprediction(ctx):
+    if ctx.guild.id != Config.server_id:
+        return
+    if not Economy.initialized:
+        return
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
+        return
+    Log(f"{ctx.author.name} used command 'closeprediction'")
+    try:
+        if not Economy.checkPrediction():
+            embed = discord.Embed(description=f"There are no predictions running at the moment.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        pred_id = Economy.getLastPredictionId()
+        ret_val = Economy.closePrediction(pred_id)
+        if ret_val == 0:
+            embed = discord.Embed(description=f"Prediction not found.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        elif ret_val == 1:
+            embed = discord.Embed(description=f"Prediction is already closed.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        else:
+            #await ctx.message.add_reaction('\N{THUMBS UP SIGN}')
+            return
+        return
+    except Exception as e:
+        Log(f"Exception in prediction start: {e}")
+        return
+
+@client.command(name="endprediction", aliases=[])
+async def _economy_endprediction(ctx, result='1'):
+    if ctx.guild.id != Config.server_id:
+        return
+    if not Economy.initialized:
+        return
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
+        return
+    Log(f"{ctx.author.name} used command 'endprediction' with args '{result}'")
+    try:
+        if not Economy.checkPrediction():
+            embed = discord.Embed(description=f"There are no predictions running at the moment.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        pred_id = Economy.getLastPredictionId()
+        ret_val = await Economy.endPrediction(client, ctx, pred_id, int(result))
+        if ret_val == 0:
+            embed = discord.Embed(description=f"Prediction not found.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        elif ret_val == 1:
+            embed = discord.Embed(description=f"Close the prediction first.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        else:
+            #await ctx.message.add_reaction('\N{THUMBS UP SIGN}')
+            return
+        return
+    except Exception as e:
+        Log(f"Exception in prediction end: {e}")
+        return
+
+@client.command(name="predict", aliases=[])
+async def _economy_predict(ctx, option='0', amount='0'):
+    if ctx.guild.id != Config.server_id:
+        return
+    if not Economy.initialized:
+        return
+    Log(f"{ctx.author.name} used command 'prediction' with args '{option}, {amount}'")
+    try:
+        if not Economy.checkPrediction():
+            embed = discord.Embed(description=f"There are no open predictions at the moment.", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        if int(option) < 1:
+            embed = discord.Embed(description=f"Option not found", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        cash = Economy.getUserInfo(str(ctx.author.id), "balance")
+        f_amount = round(int(amount), 0)
+        if f_amount < 10:
+            embed = discord.Embed(description=f"Bet amount must be greater than 10", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        if f_amount > cash:
+            embed = discord.Embed(description=f"You don't have that much money", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        pred_id = Economy.getLastPredictionId()
+        ret_val = Economy.addPredictionEntry(ctx.author.id, pred_id, int(option), f_amount)
+        if ret_val == 0:
+            embed = discord.Embed(description=f"Prediction not found", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        elif ret_val == 1:
+            embed = discord.Embed(description=f"Prediction is already closed", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        elif ret_val == 2:
+            embed = discord.Embed(description=f"You already choosed an option", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        elif ret_val == 3:
+            embed = discord.Embed(description=f"Option not found", color=discord.Color(15158332))
+            await ctx.reply(embed = embed)
+            return
+        else:
+            Economy.changeUserBalance(str(ctx.author.id), -f_amount)
+            pred = Economy.getPrediction(pred_id)
+            option_name = option
+            if pred != None:
+                option_name = pred['options'][int(option)-1]['name']
+            embed = discord.Embed(description=f"You put {f_amount}$ on '{option_name}'", color=discord.Color(3447003))
+            await ctx.reply(embed = embed)
+            return
+        
+        return
+    except Exception as e:
+        Log(f"Exception in predict: {e}")
+        return
 
 @client.command(name="shutdown", aliases=['stop'])
 async def _shutdown(ctx):
@@ -168,8 +385,25 @@ async def _help(ctx):
         await ctx.reply(embed = embed)
         return
     Log(f"{ctx.author.name} used help")
-    embed = discord.Embed(title="Commands for bot manager:", description=">init - start up a clipper bot\n>shutdown - stop most bot functions\n>setup-channel <general/bot> <channel_id> - sets up config field (general used for /sync-live)", color=discord.Color(3066993))
-    await ctx.reply(embed = embed)
+    if (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles) or ctx.author.id == Config.owner_id:
+        embed = discord.Embed(title="Commands for bot manager:", description=">init - start up a clipper bot\n>shutdown - stop most bot functions\n>setup-channel <general/bot> <channel_id> - sets up config field (general used for /sync-live)\n>prediction <name> <opt1> <opt2> <...opt5> - start a prediction\n>closeprediction - close last prediction\n>endprediction <result> - end last prediction (result=option number)\n>predict <option> <amount> - join a prediction\n>cash - check how much u have money", color=discord.Color(3066993))
+        await ctx.reply(embed = embed)
+        return
+    else:
+        embed = discord.Embed(title="Commands:", description=">predict <option> <amount> - join a prediction\n>cash - check how much u have money", color=discord.Color(3066993))
+        await ctx.reply(embed = embed)
+        return
+    return
+
+@client.command(name="ass")
+async def _ass(ctx):
+    if ctx.guild.id != Config.server_id:
+        return
+    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
+        return
+    asslist = ['https://media.discordapp.net/attachments/921520517742211085/966286514373935104/apple.png','https://media.discordapp.net/attachments/921520517742211085/966286514566877184/burner.png','https://media.discordapp.net/attachments/921520517742211085/966286514772389958/eor.png','https://media.discordapp.net/attachments/921520517742211085/966286514998870076/ewg.png','https://media.discordapp.net/attachments/921520517742211085/966286515217006603/froddo.png','https://media.discordapp.net/attachments/921520517742211085/966286515426697226/hypers.png','https://media.discordapp.net/attachments/921520517742211085/966286515594465330/lboss.png','https://media.discordapp.net/attachments/921520517742211085/966286515791593514/random.png','https://media.discordapp.net/attachments/921520517742211085/966286515971981343/viz.png','https://media.discordapp.net/attachments/921520517742211085/966286516269760522/alf.png']
+    Log(f"{ctx.author.name} used ass")
+    await ctx.reply(random.choice(asslist))
     return
 
 @client.command(name="commands")
@@ -891,6 +1125,40 @@ async def _save_story(ctx:SlashContext, user: str):
         return
     Log(f"{ctx.author.name} used command /save-story")
 
+# *  /roll
+@slash.slash(
+    name="roll",
+    description="Rolls a dice (1-6)",
+    guild_ids=active_guilds,
+    options=[
+    ]
+)
+async def _roll(ctx:SlashContext):
+    if ctx.guild.id != Config.server_id:
+        return
+    Log(f"{ctx.author.name} used command /roll")
+    await ctx.reply(f"<:game_die:983083565111713892> You rolled a {random.randint(1, 6)} <:game_die:983083565111713892>")
+
+# *  /coinflip
+@slash.slash(
+    name="coinflip",
+    description="Flips a coin (heads/tails - 50%)",
+    guild_ids=active_guilds,
+    options=[
+    ]
+)
+async def _coinflip(ctx:SlashContext):
+    if ctx.guild.id != Config.server_id:
+        return
+    Log(f"{ctx.author.name} used command /coinflip")
+    flip = random.randint(1,2)
+    if flip == 1:
+        await ctx.reply(f"<:coin:983084455247884348> Flipping coin .. heads! <:coin:983084455247884348>")
+    else:
+        await ctx.reply(f"<:coin:983084455247884348> Flipping coin .. tails! <:coin:983084455247884348>")
+
+
+
 ######################
 
 @tasks.loop(seconds=1)
@@ -900,6 +1168,18 @@ async def clipper_loop():
 @tasks.loop(seconds=10)
 async def global_save():
     await SaveSettings()
+
+@tasks.loop(seconds=2)
+async def update_predictions():
+    try:
+        if Economy.initialized:
+            last_pred = Economy.getLastPredictionId()
+            pred = Economy.getPrediction(last_pred)
+            if pred != None and (pred['state'] == 0 or pred['state'] == 1):
+                await Economy.displayPrediction(client, last_pred)
+    except Exception as e:
+        print(e)
+        return
 
 @tasks.loop(seconds=3)
 async def instagram_loop():
