@@ -395,17 +395,6 @@ async def _help(ctx):
         return
     return
 
-@client.command(name="ass")
-async def _ass(ctx):
-    if ctx.guild.id != Config.server_id:
-        return
-    if (not (ctx.guild.get_role(Settings.bot_manager_role) in ctx.author.roles)) and ctx.author.id != Config.owner_id:
-        return
-    asslist = ['https://media.discordapp.net/attachments/921520517742211085/966286514373935104/apple.png','https://media.discordapp.net/attachments/921520517742211085/966286514566877184/burner.png','https://media.discordapp.net/attachments/921520517742211085/966286514772389958/eor.png','https://media.discordapp.net/attachments/921520517742211085/966286514998870076/ewg.png','https://media.discordapp.net/attachments/921520517742211085/966286515217006603/froddo.png','https://media.discordapp.net/attachments/921520517742211085/966286515426697226/hypers.png','https://media.discordapp.net/attachments/921520517742211085/966286515594465330/lboss.png','https://media.discordapp.net/attachments/921520517742211085/966286515791593514/random.png','https://media.discordapp.net/attachments/921520517742211085/966286515971981343/viz.png','https://media.discordapp.net/attachments/921520517742211085/966286516269760522/alf.png']
-    Log(f"{ctx.author.name} used ass")
-    await ctx.reply(random.choice(asslist))
-    return
-
 @client.command(name="commands")
 async def _commands(ctx):
     if ctx.guild.id != Config.server_id:
@@ -414,7 +403,7 @@ async def _commands(ctx):
         embed = discord.Embed(description="This command requires manager role.", color=discord.Color(15158332))
         await ctx.reply(embed = embed)
         return
-    await ctx.reply(f"https://media.discordapp.net/attachments/949768918757691403/963530017604796476/unknown.png?width=993&height=609")
+    await ctx.reply(f"")
     return
 
 @client.command(name="myclips", aliases=['mc'])
@@ -430,7 +419,7 @@ async def _myclips(ctx, arg=""):
     if arg=="":
         embed=discord.Embed(title=f"Stats for {ctx.author.name}:", description=f"Clips saved: {GlobalAccount.users[str(ctx.author.id)]['total_clips']}\nUse 'myclips recent' to view your recent clips.", color=15844367)
         embed.set_thumbnail(url=f"{ctx.author.avatar_url}")
-        embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+        embed.set_footer(text="Clipperbot ✨", icon_url="")
         await ctx.reply(embed=embed)
         return
     elif arg=="recent":
@@ -443,7 +432,7 @@ async def _myclips(ctx, arg=""):
                 break
         embed=discord.Embed(title=f"Recent clips for {ctx.author.name}:", description=desc, color=15844367)
         embed.set_thumbnail(url=f"{ctx.author.avatar_url}")
-        embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+        embed.set_footer(text="Clipperbot ✨", icon_url="")
         await ctx.reply(embed=embed)
     return
 
@@ -476,7 +465,7 @@ async def _recap(ctx, arg=""):
             if curr >= 10 * page:
                 break
     embed=discord.Embed(title=f"Recent clips (Page {page})", description=desc, color=15844367)
-    embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+    embed.set_footer(text="Clipperbot ✨", icon_url="")
     await ctx.reply(embed=embed)
     return
 
@@ -670,7 +659,7 @@ async def _clip_save(ctx:SlashContext, streamable_id: str):
             embed.add_field(name="Size:", value=f"{round(mp4_file['size']/1024/1024, 2)}MB")
         if 'duration' in mp4_file:
             embed.add_field(name="Duration:", value=f"{mp4_file['duration']}s")
-        embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+        embed.set_footer(text="Clipperbot ✨", icon_url="")
         await ctx.send(embed=embed)
         return
     else:
@@ -743,7 +732,7 @@ async def _timestamp_live(ctx:SlashContext, channel: str, title: str = "none"):
             if user_pic != "":
                 embed.set_thumbnail(url=user_pic)
             embed.set_author(name=f"{ctx.author.name}", icon_url=f"{ctx.author.avatar_url}")
-            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+            embed.set_footer(text="Clipperbot ✨", icon_url="")
             await ctx.send(embed=embed)
             return
     except Exception as e:
@@ -821,7 +810,7 @@ async def _timestamp(ctx:SlashContext, channel: str, timestamp: str, title: str 
             if user_pic != "":
                 embed.set_thumbnail(url=user_pic)
             embed.set_author(name=f"{ctx.author.name}", icon_url=f"{ctx.author.avatar_url}")
-            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+            embed.set_footer(text="Clipperbot ✨", icon_url="")
             await ctx.send(embed=embed)
             return
     except Exception as e:
@@ -902,7 +891,7 @@ async def _sync_live(ctx:SlashContext, channel: str, title: str = "none"):
             if user_pic != "":
                 embed.set_thumbnail(url=user_pic)
             embed.set_author(name=f"{ctx.author.name}", icon_url=f"{ctx.author.avatar_url}")
-            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+            embed.set_footer(text="Clipperbot ✨", icon_url="")
             await ctx.send(embed=embed)
             return
     except Exception as e:
@@ -959,6 +948,7 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
             user_id = req_json['data'][0]['id']
             user_pic = req_json['data'][0]['profile_image_url']
         else:
+            print(req_json)
             Log(f"Sync: User not found")
             embed=discord.Embed(description=f"Channel not found.", color=10038562)
             await ctx.send(embed=embed)
@@ -1011,7 +1001,7 @@ async def _sync(ctx:SlashContext, channel: str, message_id:str, title: str = "no
             if user_pic != "":
                 embed.set_thumbnail(url=user_pic)
             embed.set_author(name=f"{ctx.author.name}", icon_url=f"{ctx.author.avatar_url}")
-            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+            embed.set_footer(text="Clipperbot ✨", icon_url="")
             await ctx.send(embed=embed)
             return
         else:
@@ -1198,7 +1188,7 @@ async def instagram_loop():
                 if story.thumbnail_link != "":
                     embed.set_image(url=f"{story.thumbnail_link}")
                 embed.add_field(name="Posted at:", value=f"{str(story.taken_at)}")
-                embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                embed.set_footer(text="Clipperbot ✨", icon_url="")
                 await bot_channel.send(embed=embed)
                 Instagram.stories_ready.remove(story)
         except Exception as e:

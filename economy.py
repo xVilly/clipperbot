@@ -175,7 +175,7 @@ class Economy:
         options_text += f"\n\nA total of {total}$ has been paid out to {winner_option['total_users']} users <:partying_face:982031267610648627>"
         embed = discord.Embed(title=f"{prediction['name']}", description=f"{options_text}", color=discord.Color(3066993))
         embed.set_author(name=f"{ctx.author.name} ended a prediction", icon_url=f"{ctx.author.avatar_url}")
-        embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+        embed.set_footer(text="Clipperbot ✨", icon_url="")
 
         await channel.send(embed=embed)
         Cache.save_cache()
@@ -263,8 +263,8 @@ class Economy:
             embed.add_field(name=f"Total money", value=f"{total_money}$")
             embed.add_field(name=f"Total entries", value=f"{total_users}")
             embed.add_field(name=f"Started at", value=f"{prediction['started']}")
-            embed.set_thumbnail(url=f"https://media.discordapp.net/attachments/961765313416941568/981999371782590474/unknown.png")
-            embed.set_footer(text="Emikif ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+            embed.set_thumbnail(url=f"")
+            embed.set_footer(text="Clipperbot ✨", icon_url="")
             if channel_id == -1:
                 channel_id = ctx.channel.id
                 embed.set_author(name=f"{ctx.author.name} started prediction", icon_url=f"{ctx.author.avatar_url}")

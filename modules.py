@@ -153,7 +153,7 @@ class Clipper:
                                 embed.add_field(name="Clipper:", value=f"{clipper.message_author.name}")
                                 embed.add_field(name="Timestamp:", value=f"{convertTime(clipper.start_time)}")
                                 embed.add_field(name="Duration:", value=f"{convertTime(clipper.duration)}")
-                            embed.set_footer(text="Clipperbot ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                            embed.set_footer(text="Clipperbot ✨", icon_url="")
                             await clipper.message.edit(embed = embed)
                             clipper.update_msg = False
                         elif clipper.cmd == "clip-vod":
@@ -166,7 +166,7 @@ class Clipper:
                                 embed.add_field(name="Clipper:", value=f"{clipper.message_author.name}")
                                 embed.add_field(name="Timestamp:", value=f"{convertTime(clipper.start_time)}")
                                 embed.add_field(name="Duration:", value=f"{convertTime(clipper.duration)}")
-                            embed.set_footer(text="Clipperbot ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                            embed.set_footer(text="Clipperbot ✨", icon_url="")
                             await clipper.message.edit(embed = embed)
                             clipper.update_msg = False
                         elif clipper.cmd == "clip-live":
@@ -181,7 +181,7 @@ class Clipper:
                                 embed.add_field(name="Clipper:", value=f"{clipper.message_author.name}")
                                 embed.add_field(name="Timestamp:", value=f"{convertTime(clipper.start_time)}")
                                 embed.add_field(name="Duration:", value=f"{convertTime(clipper.duration)}")
-                            embed.set_footer(text="Clipperbot ✨", icon_url="https://media.discordapp.net/attachments/949768918757691403/961715957338873887/darkice.png?width=679&height=609")
+                            embed.set_footer(text="Clipperbot ✨", icon_url="")
                             await clipper.message.edit(embed = embed)
                             clipper.update_msg = False
                     except Exception as e:
@@ -252,6 +252,7 @@ class Clipper:
                         self.user_id = req_json['data'][0]['id']
                         self.user_image = req_json['data'][0]['profile_image_url']
                     else:
+                        print(req_json)
                         Log(f"Clipping: User not found")
                         self.status = "User not found."
                         self.color = 10038562
